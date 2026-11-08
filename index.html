@@ -143,6 +143,19 @@
     header { padding: 15px 20px; }
     .products { padding: 20px; gap: 15px; }
   }
+
+  /* СТИЛІ ДЛЯ ПОМИЛОК (Лаб 10) */
+  .error-msg {
+    color: #dc3545;
+    font-size: 12px;
+    margin-top: 5px;
+    display: block;
+    font-weight: 600;
+  }
+  .form-group input.invalid {
+    border-color: #dc3545;
+    background: #fff5f5;
+  }
 </style>
 </head>
 <body>
@@ -178,21 +191,33 @@
 <div class="modal-overlay" id="checkoutModal">
   <div class="modal">
     <h2>📦 Оформлення замовлення</h2>
+    
+    <!-- ДОДАНО ПОЛЕ ДЛЯ ЛАБ 10 (Ціна товару) -->
+    <div class="form-group">
+      <label for="productPrice">Ціна товару (для перевірки) *</label>
+      <input type="text" id="productPrice" placeholder="Наприклад: 1200.50">
+      <span class="error-msg" id="priceError"></span>
+    </div>
+
     <div class="form-group">
       <label for="orderName">Ваше ім'я *</label>
       <input type="text" id="orderName" placeholder="Іван Петренко">
+      <span class="error-msg" id="nameError"></span>
     </div>
     <div class="form-group">
       <label for="orderEmail">Email *</label>
       <input type="email" id="orderEmail" placeholder="example@domain.com">
+      <span class="error-msg" id="emailError"></span>
     </div>
     <div class="form-group">
       <label for="orderPhone">Телефон *</label>
       <input type="tel" id="orderPhone" placeholder="+380123456789">
+      <span class="error-msg" id="phoneError"></span>
     </div>
     <div class="form-group">
       <label for="orderCity">Місто</label>
       <input type="text" id="orderCity" placeholder="Київ">
+      <span class="error-msg" id="cityError"></span>
     </div>
     <div class="form-group">
       <label>Спосіб доставки *</label>
@@ -347,8 +372,21 @@ function closeCheckout() {
   document.getElementById("checkoutModal").classList.remove("active");
 }
 
-/* ============ ПІДТВЕРДЖЕННЯ ЗАМОВЛЕННЯ ============ */
+/* ============ ФУНКЦІЯ ОЧИЩЕННЯ ПОМИЛОК ============ */
+function clearErrors() {
+  const errorSpans = document.querySelectorAll('.error-msg');
+  errorSpans.forEach(span => span.textContent = '');
+  
+  const inputs = document.querySelectorAll('.modal input, .modal textarea');
+  inputs.forEach(input => input.classList.remove('invalid'));
+}
+
+/* ============ ПІДТВЕРДЖЕННЯ ЗАМОВЛЕННЯ З ПЕРЕВІРКАМИ (Лаб 10) ============ */
 function confirmOrder() {
+  clearErrors(); // Очищаємо попередні помилки
+
+  // Отримання значень
+  const price = document.getElementById("productPrice").value.trim();
   const name = document.getElementById("orderName").value.trim();
   const email = document.getElementById("orderEmail").value.trim();
   const phone = document.getElementById("orderPhone").value.trim();
@@ -356,21 +394,56 @@ function confirmOrder() {
   const comment = document.getElementById("orderComment").value.trim();
   const delivery = document.querySelector('input[name="delivery"]:checked').value;
 
-  // Валідація
-  if (!name || !email || !phone) {
-    alert("⚠️ Будь ласка, заповніть ім'я, email та телефон!");
-    return;
+  let isValid = true;
+
+  // 1. Перевірка "Ціна товару" (Регулярний вираз з ЛР №10: додатні десяткові числа)
+  // ^\d+(\.\d{1,2})?$
+  const priceRegex = /^\d+(\.\d{1,2})?$/;
+  if (!priceRegex.test(price)) {
+    document.getElementById('priceError').textContent = 'Ціна має бути додатним числом (напр., 1200 або 1200.50)';
+    document.getElementById('productPrice').classList.add('invalid');
+    isValid = false;
   }
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    alert("⚠️ Некоректний email!");
-    return;
+
+  // 2. Перевірка "Ім'я" (Літери, цифри, пробіли, дефіси. Мін 2 символи)
+  const nameRegex = /^[a-zA-Zа-яА-ЯіІїЇєЄґҐ\s\-]{2,50}$/;
+  if (!nameRegex.test(name)) {
+    document.getElementById('nameError').textContent = "Ім'я може містити лише літери (мін. 2 символи)";
+    document.getElementById('orderName').classList.add('invalid');
+    isValid = false;
   }
-  if (!/^\+?\d{10,13}$/.test(phone.replace(/\s/g, ""))) {
-    alert("⚠️ Некоректний телефон!");
+
+  // 3. Перевірка Email (Регулярний вираз)
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    document.getElementById('emailError').textContent = 'Введіть коректну електронну пошту';
+    document.getElementById('orderEmail').classList.add('invalid');
+    isValid = false;
+  }
+
+  // 4. Перевірка Телефону (Регулярний вираз: + і 10-13 цифр)
+  const phoneRegex = /^\+?\d{10,13}$/;
+  if (!phoneRegex.test(phone.replace(/\s/g, ""))) {
+    document.getElementById('phoneError').textContent = 'Телефон має бути у форматі +380XXXXXXXXX';
+    document.getElementById('orderPhone').classList.add('invalid');
+    isValid = false;
+  }
+
+  // 5. Перевірка Міста (Тільки літери, мін 2 символи)
+  const cityRegex = /^[a-zA-Zа-яА-ЯіІїЇєЄґҐ\s\-]{2,30}$/;
+  if (city && !cityRegex.test(city)) { // Місто не обов'язкове, але якщо введене - перевіряємо
+    document.getElementById('cityError').textContent = 'Місто може містити лише літери';
+    document.getElementById('orderCity').classList.add('invalid');
+    isValid = false;
+  }
+
+  // Якщо є помилки - зупиняємо відправку
+  if (!isValid) {
+    showToast("❌ Виправте помилки у формі!");
     return;
   }
 
-  // Додаткові опції
+  // Якщо все добре - формуємо замовлення
   let extra = 0;
   if (document.getElementById("optGift").checked) extra += 50;
   if (document.getElementById("optInsurance").checked) extra += 30;
@@ -379,13 +452,9 @@ function confirmOrder() {
   const subtotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
   const total = subtotal + extra;
 
-  // Формуємо замовлення
   const order = {
     name, email, phone, city, comment, delivery,
-    extra,
-    items: cart,
-    subtotal,
-    total,
+    extra, items: cart, subtotal, total,
     date: new Date().toLocaleString("uk-UA"),
   };
 
@@ -410,6 +479,8 @@ function confirmOrder() {
   cart = [];
   saveCart();
   closeCheckout();
+  
+  // Очищення полів
   document.getElementById("checkoutModal").querySelectorAll("input[type=text], input[type=email], input[type=tel], textarea").forEach(el => el.value = "");
   document.getElementById("optGift").checked = false;
   document.getElementById("optInsurance").checked = false;
